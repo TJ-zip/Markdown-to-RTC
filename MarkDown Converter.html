@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Markdown to Rich Text Converter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Telugu:wght@400;500;600&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #121212;
+      --bg-secondary: #1E1E1E;
+      --text-primary: #E0E0E0;
+      --text-secondary: #B0B0B0;
+      --accent: #90ea1a;
+      --accent-secondary: #ff9a02;
+      --transition: all 0.3s ease;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: 'Inter', 'Roboto', sans-serif;
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    header {
+      padding: 1.5rem;
+      text-align: center;
+      background-color: var(--bg-secondary);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      position: relative;
+      z-index: 10;
+    }
+
+    h1 {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .tagline {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 1.5rem;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .converter-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    @media (min-width: 768px) {
+      .converter-container {
+        flex-direction: row;
+      }
+    }
+
+    .input-section, .output-section {
+      flex: 1;
+      background-color: var(--bg-secondary);
+      border-radius: 8px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      transition: var(--transition);
+    }
+
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #333;
+    }
+
+    .section-heading {
+      font-size: 1.2rem;
+      font-weight: 500;
+      color: var(--accent);
+    }
+
+    .lang-selector {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .lang-selector label {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      cursor: pointer;
+    }
+
+    input[type="radio"] {
+      cursor: pointer;
+    }
+
+    #markdown-input {
+      width: 100%;
+      height: 300px;
+      background-color: rgba(30, 30, 30, 0.6);
+      color: var(--text-primary);
+      padding: 1rem;
+      border: 1px solid #333;
+      border-radius: 4px;
+      resize: vertical;
+      font-family: 'Inter', 'Roboto', monospace;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      transition: var(--transition);
+    }
+
+    #markdown-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(0, 191, 166, 0.2);
+    }
+
+    #output-container {
+      height: 300px;
+      overflow: hidden;
+      position: relative;
+      padding: 1rem;
+      border: 1px solid #333;
+      border-radius: 4px;
+      background-color: rgba(30, 30, 30, 0.6);
+    }
+
+    #rich-text-output {
+      font-family: 'Inter', 'Roboto', 'Noto Sans Telugu', sans-serif;
+      transition: var(--transition);
+      padding-bottom: 50px;
+    }
+
+    .output-scrolling {
+      position: absolute;
+      width: 100%;
+      transition: transform 0.5s linear;
+    }
+
+    .telugu {
+      font-family: 'Noto Sans Telugu', sans-serif;
+    }
+
+    .controls {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1rem;
+      flex-wrap: wrap;
+    }
+
+    button {
+      background-color: var(--accent);
+      color: #121212;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      border-radius: 4px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    button:hover {
+      background-color: #00d8bc;
+      transform: translateY(-2px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button.secondary {
+      background-color: transparent;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+    }
+
+    button.secondary:hover {
+      background-color: rgba(0, 191, 166, 0.1);
+    }
+
+    .scroll-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+      background-color: var(--bg-secondary);
+      border-radius: 8px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .scroll-title {
+      font-size: 1.1rem;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      color: var(--accent);
+    }
+
+    .scroll-settings {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+    }
+
+    .setting-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .setting-group label {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .setting-input {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 6px;
+      background: #333;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      background: var(--accent);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    input[type="number"] {
+      width: 60px;
+      padding: 0.3rem;
+      background-color: rgba(30, 30, 30, 0.6);
+      color: var(--text-primary);
+      border: 1px solid #333;
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    input[type="number"]:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .button-group {
+      display: flex;
+      gap: 0.8rem;
+      margin-top: 0.5rem;
+    }
+
+    .scroll-info {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-top: 0.5rem;
+    }
+
+    /* Rich text styling */
+    #rich-text-output h1, #rich-text-output h2, #rich-text-output h3, 
+    #rich-text-output h4, #rich-text-output h5, #rich-text-output h6 {
+      margin-top: 1.5rem;
+      margin-bottom: 0.8rem;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    #rich-text-output h1 {
+      font-size: 1.8rem;
+      color: var(--accent);
+    }
+
+    #rich-text-output h2 {
+      font-size: 1.5rem;
+      border-bottom: 1px solid #333;
+      padding-bottom: 0.3rem;
+    }
+
+    #rich-text-output h3 {
+      font-size: 1.3rem;
+    }
+
+    #rich-text-output h4 {
+      font-size: 1.1rem;
+    }
+
+    #rich-text-output p {
+      margin-bottom: 1rem;
+    }
+
+    #rich-text-output a {
+      color: var(--accent);
+      text-decoration: none;
+      transition: var(--transition);
+    }
+
+    #rich-text-output a:hover {
+      text-decoration: underline;
+    }
+
+    #rich-text-output strong {
+      color: var(--accent-secondary);
+      font-weight: 600;
+    }
+
+    #rich-text-output em {
+      font-style: italic;
+    }
+
+    #rich-text-output blockquote {
+      margin: 1rem 0;
+      padding-left: 1rem;
+      border-left: 3px solid var(--accent);
+      color: var(--text-secondary);
+    }
+
+    #rich-text-output code {
+      background-color: rgba(0, 0, 0, 0.3);
+      padding: 0.2rem 0.4rem;
+      border-radius: 3px;
+      font-family: monospace;
+      font-size: 0.9rem;
+    }
+
+    #rich-text-output pre {
+      background-color: rgba(0, 0, 0, 0.3);
+      padding: 1rem;
+      border-radius: 4px;
+      overflow-x: auto;
+      margin: 1rem 0;
+    }
+
+    #rich-text-output pre code {
+      background-color: transparent;
+      padding: 0;
+    }
+
+    #rich-text-output ul, #rich-text-output ol {
+      padding-left: 2rem;
+      margin-bottom: 1rem;
+    }
+
+    #rich-text-output li {
+      margin-bottom: 0.5rem;
+    }
+
+    #rich-text-output table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 1rem 0;
+    }
+
+    #rich-text-output th, #rich-text-output td {
+      border: 1px solid #333;
+      padding: 0.5rem;
+      text-align: left;
+    }
+
+    #rich-text-output th {
+      background-color: rgba(0, 0, 0, 0.2);
+    }
+
+    #rich-text-output hr {
+      border: none;
+      border-top: 1px solid #333;
+      margin: 2rem 0;
+    }
+
+    /* Fade effect for scrolling container */
+    #output-container::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 40px;
+      background: linear-gradient(transparent, var(--bg-secondary));
+      pointer-events: none;
+    }
+
+    #output-container::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 40px;
+      background: linear-gradient(var(--bg-secondary), transparent);
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    main {
+      animation: fadeIn 0.5s ease forwards;
+    }
+
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      background-color: var(--bg-secondary);
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+    }
+
+    .loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: none;
+      color: var(--accent);
+      font-size: 1rem;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.6; }
+      50% { opacity: 1; }
+      100% { opacity: 0.6; }
+    }
+
+    .loading.active {
+      display: block;
+      animation: pulse 1.5s infinite ease-in-out;
+    }
+
+    /* Toast notification */
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background-color: var(--bg-secondary);
+      color: var(--text-primary);
+      padding: 1rem 1.5rem;
+      border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      z-index: 100;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.3s ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .toast-icon {
+      color: var(--accent);
+      font-size: 1.2rem;
+    }
+
+    .toast-message {
+      font-size: 0.9rem;
+    }
+
+    /* Additions for Telugu support */
+    .telugu-text {
+      font-family: 'Noto Sans Telugu', sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Markdown to Rich Text Converter</h1>
+    <p class="tagline">Transform your markdown text into beautifully formatted rich text with auto-scrolling</p>
+  </header>
+
+  <main>
+    <div class="converter-container">
+      <div class="input-section">
+        <div class="section-title">
+          <div class="section-heading">Markdown Input</div>
+          <div class="lang-selector">
+            <label>
+              <input type="radio" name="language" value="english" checked> English
+            </label>
+            <label>
+              <input type="radio" name="language" value="telugu"> Telugu
+            </label>
+          </div>
+        </div>
+        <textarea id="markdown-input" placeholder="Enter your markdown text here..."></textarea>
+        <div class="controls">
+          <button id="convert-btn">
+            Convert to Rich Text
+          </button>
+          <button id="clear-btn" class="secondary">
+            Clear
+          </button>
+          <button id="sample-btn" class="secondary">
+            Load Sample
+          </button>
+        </div>
+      </div>
+
+      <div class="output-section">
+        <div class="section-title">
+          <div class="section-heading">Rich Text Output</div>
+        </div>
+        <div id="output-container">
+          <div id="rich-text-output"></div>
+          <div class="loading">Converting...</div>
+        </div>
+        <div class="controls">
+          <button id="start-scroll-btn">
+            Start Auto-Scroll
+          </button>
+          <button id="pause-scroll-btn" class="secondary">
+            Pause Scrolling
+          </button>
+          <button id="reset-scroll-btn" class="secondary">
+            Reset Position
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="scroll-controls">
+      <div class="scroll-title">Auto-Scroll Settings</div>
+      <div class="scroll-settings">
+        <div class="setting-group">
+          <label for="scroll-speed">Scrolling Speed (WPM)</label>
+          <div class="setting-input">
+            <input type="range" id="scroll-speed" min="100" max="400" step="10" value="200">
+            <input type="number" id="scroll-speed-value" min="100" max="400" value="200">
+          </div>
+        </div>
+        <div class="setting-group">
+          <label for="delay-seconds">Delay Before Scrolling (seconds)</label>
+          <div class="setting-input">
+            <input type="range" id="delay-seconds" min="0" max="10" step="1" value="5">
+            <input type="number" id="delay-seconds-value" min="0" max="10" value="5">
+          </div>
+        </div>
+      </div>
+      <p class="scroll-info">Adjust scrolling speed to match your reading preferences. The WPM (Words Per Minute) setting determines how quickly the text will scroll.</p>
+    </div>
+  </main>
+
+  <div class="toast" id="toast">
+    <div class="toast-icon">✓</div>
+    <div class="toast-message">Successfully converted to rich text!</div>
+  </div>
+
+  <footer>
+    <p>Markdown to Rich Text Converter © 2025</p>
+  </footer>
+
+  <script>
+    // DOM Elements
+    const markdownInput = document.getElementById('markdown-input');
+    const richTextOutput = document.getElementById('rich-text-output');
+    const outputContainer = document.getElementById('output-container');
+    const convertBtn = document.getElementById('convert-btn');
+    const clearBtn = document.getElementById('clear-btn');
+    const sampleBtn = document.getElementById('sample-btn');
+    const startScrollBtn = document.getElementById('start-scroll-btn');
+    const pauseScrollBtn = document.getElementById('pause-scroll-btn');
+    const resetScrollBtn = document.getElementById('reset-scroll-btn');
+    const scrollSpeedInput = document.getElementById('scroll-speed');
+    const scrollSpeedValue = document.getElementById('scroll-speed-value');
+    const delayInput = document.getElementById('delay-seconds');
+    const delayValue = document.getElementById('delay-seconds-value');
+    const languageRadios = document.querySelectorAll('input[name="language"]');
+    const loading = document.querySelector('.loading');
+    const toast = document.getElementById('toast');
+
+    // Variables for scrolling
+    let isScrolling = false;
+    let scrollAnimationId = null;
+    let startTime = null;
+    let scrollDelay = 5000; // 5 seconds in milliseconds
+    let scrollSpeed = 200; // words per minute
+    let pixelsPerSecond = 60; // Default pixel scrolling speed
+    let currentLanguage = 'english';
+
+    // Sample content in English
+    const englishSample = `# Markdown to Rich Text Conversion
+## Introduction to Markdown
+
+Markdown is a lightweight markup language with **plain-text formatting syntax**. Its design allows it to be converted to many output formats, but the original tool by John Gruber only supports HTML.
+
+### Key Features of Markdown:
+
+* **Simplicity**: Easy to read and write
+* **Portability**: Can be used across different platforms
+* **Flexibility**: Supports basic formatting like *italics*, **bold**, and [links](https://example.com)
+
+## Code Example
+
+\`\`\`javascript
+function greetUser(name) {
+  return "Hello, " + name + "! Welcome to Markdown.";
+}
+
+console.log(greetUser("Developer"));
+\`\`\`
+
+## Blockquotes and Lists
+
+> Markdown is designed to be easy to write, and even easier to read.
+
+1. First ordered list item
+2. Second item
+   * Unordered sub-list
+3. Third item
+
+## Tables
+
+| Feature | Support |
+|---------|---------|
+| Headers | Yes |
+| Bold Text | Yes |
+| Links | Yes |
+| Images | Yes |
+
+## Conclusion
+
+Markdown is widely used in:
+- Documentation
+- README files
+- Forums & comment systems
+- Note-taking applications`;
+
+    // Sample content in Telugu
+    const teluguSample = `# మార్క్‌డౌన్ నుండి రిచ్ టెక్స్ట్ కన్వర్షన్
+
+## మార్క్‌డౌన్ పరిచయం
+
+మార్క్‌డౌన్ అనేది **సాధారణ-పాఠ్య ఫార్మాటింగ్ సింటాక్స్** తో ఒక తేలికపాటి మార్కప్ భాష. దీని డిజైన్ చాలా ఔట్‌పుట్ ఫార్మాట్‌లకు మార్చబడటానికి అనుమతిస్తుంది, కానీ John Gruber యొక్క అసలు సాధనం HTML కి మాత్రమే మద్దతు ఇస్తుంది.
+
+### మార్క్‌డౌన్ యొక్క ముఖ్యమైన లక్షణాలు:
+
+* **సాధారణం**: చదవడానికి మరియు వ్రాయడానికి సులభం
+* **పోర్టబులిటీ**: వివిధ ప్లాట్‌ఫారమ్‌లలో ఉపయోగించవచ్చు
+* **స్థితిస్థాపకత**: *ఇటాలిక్స్*, **బోల్డ్** మరియు [లింక్స్](https://example.com) వంటి ప్రాథమిక ఫార్మాటింగ్‌కి మద్దతు ఇస్తుంది
+
+## కోడ్ ఉదాహరణ
+
+\`\`\`javascript
+function greetUser(name) {
+  return "హలో, " + name + "! మార్క్‌డౌన్‌కి స్వాగతం.";
+}
+
+console.log(greetUser("డెవలపర్"));
+\`\`\`
+
+## బ్లాక్‌క్వోట్స్ మరియు జాబితాలు
+
+> మార్క్‌డౌన్ వ్రాయడానికి సులభంగా ఉండేలా రూపొందించబడింది, మరియు చదవడానికి మరింత సులభంగా ఉంటుంది.
+
+1. మొదటి క్రమబద్ధమైన జాబితా అంశం
+2. రెండవ అంశం
+   * క్రమం లేని ఉప-జాబితా
+3. మూడవ అంశం
+
+## పట్టికలు
+
+| లక్షణం | సపోర్ట్ |
+|---------|---------|
+| హెడర్‌లు | అవును |
+| బోల్డ్ టెక్స్ట్ | అవును |
+| లింక్‌లు | అవును |
+| చిత్రాలు | అవును |
+
+## ముగింపు
+
+మార్క్‌డౌన్ వీటిలో విస్తృతంగా ఉపయోగించబడుతుంది:
+- డాక్యుమెంటేషన్
+- README ఫైల్స్
+- ఫోరమ్స్ & కామెంట్ సిస్టమ్స్
+- నోట్-టేకింగ్ అప్లికేషన్స్`;
+
+    // Convert Markdown to HTML
+    function convertMarkdownToHtml() {
+      if (!markdownInput.value.trim()) {
+        showToast('Please enter some markdown text', false);
+        return;
+      }
+
+      loading.classList.add('active');
+      
+      // Use setTimeout to show the loading effect
+      setTimeout(() => {
+        const markdown = markdownInput.value;
+        const html = marked.parse(markdown);
+        
+        richTextOutput.innerHTML = html;
+        
+        // Add language-specific class if Telugu
+        if (currentLanguage === 'telugu') {
+          richTextOutput.classList.add('telugu-text');
+        } else {
+          richTextOutput.classList.remove('telugu-text');
+        }
+        
+        // Prepare for scrolling
+        richTextOutput.style.transform = 'translateY(0)';
+        
+        loading.classList.remove('active');
+        showToast('Successfully converted to rich text!', true);
+      }, 300);
+    }
+
+    // Auto-scrolling functionality
+    function startScrolling() {
+      if (isScrolling) return;
+      
+      if (!richTextOutput.innerHTML) {
+        showToast('Please convert some text first', false);
+        return;
+      }
+      
+      isScrolling = true;
+      startTime = Date.now();
+      
+      // Reset to top before starting
+      richTextOutput.style.transform = 'translateY(0)';
+      
+      // Calculate scrolling speed based on content
+      const textLength = richTextOutput.textContent.split(/\s+/).length; // count words
+      const totalScrollHeight = richTextOutput.scrollHeight - outputContainer.clientHeight;
+      
+      // Adjust pixel per second based on WPM
+      // Rough estimate: average reading speed is about 200-250 WPM
+      // We'll use text length and desired duration to set pixel speed
+      const scrollDuration = (textLength / scrollSpeed) * 60; // duration in seconds based on WPM
+      pixelsPerSecond = totalScrollHeight / scrollDuration;
+      
+      showToast(`Auto-scrolling will begin in ${delayValue.value} seconds`, true);
+      
+      // Start the scrolling animation
+      requestAnimationFrame(scrollContent);
+    }
+
+    function scrollContent(timestamp) {
+      if (!isScrolling) return;
+      
+      const currentTime = Date.now();
+      const elapsedTime = currentTime - startTime;
+      
+      // Wait for the delay before starting to scroll
+      if (elapsedTime < scrollDelay) {
+        scrollAnimationId = requestAnimationFrame(scrollContent);
+        return;
+      }
+      
+      // Calculate scroll position based on elapsed time and scroll speed
+      const scrollTimeElapsed = elapsedTime - scrollDelay;
+      const scrollPosition = (scrollTimeElapsed / 1000) * pixelsPerSecond;
+      
+      // Apply scroll position
+      richTextOutput.style.transform = `translateY(-${scrollPosition}px)`;
+      
+      // Check if we've reached the end
+      const totalScrollHeight = richTextOutput.scrollHeight - outputContainer.clientHeight;
+      if (scrollPosition >= totalScrollHeight) {
+        pauseScrolling();
+        showToast('Reached the end of content', true);
+        return;
+      }
+      
+      scrollAnimationId = requestAnimationFrame(scrollContent);
+    }
+
+    function pauseScrolling() {
+      isScrolling = false;
+      if (scrollAnimationId) {
+        cancelAnimationFrame(scrollAnimationId);
+        scrollAnimationId = null;
+      }
+    }
+
+    function resetScrollPosition() {
+      pauseScrolling();
+      richTextOutput.style.transform = 'translateY(0)';
+    }
+
+    // Load sample content based on selected language
+    function loadSample() {
+      if (currentLanguage === 'telugu') {
+        markdownInput.value = teluguSample;
+      } else {
+        markdownInput.value = englishSample;
+      }
+      showToast('Sample content loaded', true);
+    }
+
+    // Clear all content
+    function clearContent() {
+      markdownInput.value = '';
+      richTextOutput.innerHTML = '';
+      resetScrollPosition();
+      showToast('Content cleared', true);
+    }
+
+    // Toast notification
+    function showToast(message, success) {
+      const toastMessage = document.querySelector('.toast-message');
+      const toastIcon = document.querySelector('.toast-icon');
+      
+      toastMessage.textContent = message;
+      toastIcon.textContent = success ? '✓' : 'ℹ';
+      toastIcon.style.color = success ? 'var(--accent)' : 'var(--accent-secondary)';
+      
+      toast.classList.add('show');
+      
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000);
+    }
+
+    // Event Listeners
+    convertBtn.addEventListener('click', convertMarkdownToHtml);
+    clearBtn.addEventListener('click', clearContent);
+    sampleBtn.addEventListener('click', loadSample);
+    startScrollBtn.addEventListener('click', startScrolling);
+    pauseScrollBtn.addEventListener('click', pauseScrolling);
+    resetScrollBtn.addEventListener('click', resetScrollPosition);
+
+    // Sync range inputs with number inputs
+    scrollSpeedInput.addEventListener('input', function() {
+      scrollSpeedValue.value = this.value;
+      scrollSpeed = parseInt(this.value);
+    });
+
+    scrollSpeedValue.addEventListener('input', function() {
+      scrollSpeedInput.value = this.value;
+      scrollSpeed = parseInt(this.value);
+    });
+
+    delayInput.addEventListener('input', function() {
+      delayValue.value = this.value;
+      scrollDelay = parseInt(this.value) * 1000; // Convert to milliseconds
+    });
+
+    delayValue.addEventListener('input', function() {
+      delayInput.value = this.value;
+      scrollDelay = parseInt(this.value) * 1000; // Convert to milliseconds
+    });
+
+    // Handle language selection
+    languageRadios.forEach(radio => {
+      radio.addEventListener('change', function() {
+        currentLanguage = this.value;
+        
+        // If Telugu is selected, add the Telugu class to the output
+        if (currentLanguage === 'telugu') {
+          richTextOutput.classList.add('telugu-text');
+        } else {
+          richTextOutput.classList.remove('telugu-text');
+        }
+        
+        // Update sample text if loaded
+        if (markdownInput.value === englishSample || markdownInput.value === teluguSample) {
+          loadSample();
+        }
+      });
+    });
+
+    // Handle keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+      // Ctrl/Cmd + Enter to convert
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        convertMarkdownToHtml();
+      }
+      
+      // Esc to pause scrolling
+      if (e.key === 'Escape' && isScrolling) {
+        pauseScrolling();
+      }
+    });
+
+    // Initialize with the default settings
+    scrollSpeed = parseInt(scrollSpeedValue.value);
+    scrollDelay = parseInt(delayValue.value) * 1000;
+
+    // Add responsive behavior for textarea height
+    markdownInput.addEventListener('input', function() {
+      this.style.height = 'auto';
+      const newHeight = Math.max(300, Math.min(this.scrollHeight, 600));
+      this.style.height = newHeight + 'px';
+    });
+  </script>
+</body>
+</html>
